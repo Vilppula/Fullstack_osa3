@@ -1,12 +1,18 @@
-const { response } = require('express')
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const Person = require('./models/person')
+const { response } = require('express')
+const person = require('./models/person')
+
 const app = express()
 
+
+
+app.use(express.static('build'))
 app.use(express.json())
 app.use(cors())
-app.use(express.static('build'))
 morgan.token('body', (req,res) => JSON.stringify(req.body))
 app.use(morgan(function (tokens, req, res) {
     return [
@@ -19,20 +25,15 @@ app.use(morgan(function (tokens, req, res) {
     ].join(' ')
 }))
 
-let persons = [
-    { id: 1, name: 'Arto Hellas', number: '040-123456' },
-    { id: 2, name: 'Ada Lovelace', number: '39-44-5323523' },
-    { id: 3, name: 'Dan Abramov', number: '12-43-234345' },
-    { id: 4, name: 'Mary Poppendieck', number: '39-23-6423122' }
-  ]
-
 
 app.get('/', (req, res) => {
     res.send('<h1>Hello World</h1>')
 })
 
 app.get('/api/persons', (req, res)=> {
-    res.json(persons)
+    Person.find({}).then(persons => {
+        res.json(persons)
+    })
 })
 
 app.get('/help', (req, res) => {
@@ -42,46 +43,72 @@ app.get('/help', (req, res) => {
     </body><html>`)
 })
 
-app.get('/api/persons/:id', (req,res) => {
-    const id = Number(req.params.id)
-    const foundPerson = persons.find(person => person.id === id)
-    if (foundPerson) {
-        res.json(foundPerson)
-    } else {
-        res.status(404).end(s)
-    }
+app.get('/api/persons/:id', (req, res, next) => {
+    const id = req.params.id
+    Person.findById(id).then(person => {
+        if (person) {
+            res.json(person)
+        } else {
+            response.status(404).end()
+        }
+    }) .catch (error => next(error))
 })
 
-app.delete('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    console.log(id)
-    if (persons.find(person => person.id === id)) {
-        persons = persons.filter(person => person.id !== id)
-        res.status(204).end()
-    } else {
-        res.status(404).end()
-    }
+app.delete('/api/persons/:id', (req, res, next) => {
+    const id = req.params.id
+    Person.findByIdAndDelete(id).then(deletedPerson => {
+        res.json(deletedPerson)
+    }).catch(error => next(error))
 })
 
-app.post('/api/persons', (req, res) => {
-    var newPerson = req.body
-    if (newPerson.name === undefined || newPerson.number === undefined) {
-        return res.status(400).json({
-            error: 'some fields were empty...'
+app.post('/api/persons', (req, res, next) => {
+    var personData = req.body
+    if (personData.name === undefined || personData.number === undefined) {
+        return res.status(400)
+    }
+    const newPerson = new Person({...personData})
+    newPerson.save().then(savedPerson => {
+        res.json(savedPerson)
+    }).catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (req, res, next) => {
+    const id = req.params.id
+    const personData = req.body
+    const personUpdate = {
+        name: personData.name,
+        number: personData.number
+    }
+    Person.findByIdAndUpdate(id, personUpdate, { new:true})
+        .then(updatedPerson => {
+            res.json(updatedPerson)    
         })
-    }
-    if (persons.filter(person => person.name === newPerson.name).length>0) {
-        return res.status(400).json({
-            error: 'name must be unique'
-        })
-    }
-    const id = Math.floor((Math.random()*1000000)+4)
-    newPerson = {id: id, ...newPerson}
-    persons = persons.concat(newPerson)
-    res.json(newPerson)
+        .catch(error => next(error))
 })
 
-const PORT = process.env.PORT || 3001
+
+
+
+const castErrorHandler = (error, req, res, next) => {
+    console.log(error.message)
+    if (error.name === 'CastError') {
+        return response.status(400).send({error: 'malformatted id'})
+    }
+    next(error)
+}
+
+const emptyFieldsErrorHandler = (error, req, res, next) => {
+    console.log(error.message)
+    if (res.status === 400) {
+        return res.status(400).json({error: 'some fields were empty...'})
+    }
+    next(error)
+}
+
+app.use(castErrorHandler)
+app.use(emptyFieldsErrorHandler)
+
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 })
