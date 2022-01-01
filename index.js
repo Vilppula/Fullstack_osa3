@@ -37,10 +37,12 @@ app.get('/api/persons', (req, res)=> {
 })
 
 app.get('/help', (req, res) => {
-    res.send(`<html><head></head><body>
-    <p>Phonebook has info for ${persons.length} people</p>
-    <p>${new Date()}</p>
-    </body><html>`)
+    Person.find({}).then(persons => {
+        res.send(`<html><head></head><body>
+                    <p>Phonebook has info for ${persons.length} people</p>
+                    <p>${new Date()}</p>
+                    </body><html>`)
+    })
 })
 
 app.get('/api/persons/:id', (req, res, next) => {
@@ -63,9 +65,6 @@ app.delete('/api/persons/:id', (req, res, next) => {
 
 app.post('/api/persons', (req, res, next) => {
     var personData = req.body
-    if (personData.name === undefined || personData.number === undefined) {
-        return res.status(400)
-    }
     const newPerson = new Person({...personData})
     newPerson.save().then(savedPerson => {
         res.json(savedPerson)
@@ -79,34 +78,28 @@ app.put('/api/persons/:id', (req, res, next) => {
         name: personData.name,
         number: personData.number
     }
-    Person.findByIdAndUpdate(id, personUpdate, { new:true})
+    Person.findByIdAndUpdate(id, personUpdate, { new:true })
         .then(updatedPerson => {
-            res.json(updatedPerson)    
+            if(updatedPerson === null) {
+                res.status(404).send({error:`Person '${personData.name}' have been removed`})
+            } else {
+                res.json(updatedPerson)
+            }    
         })
         .catch(error => next(error))
 })
 
-
-
-
-const castErrorHandler = (error, req, res, next) => {
+const errorHandler = (error, req, res, next) => {
     console.log(error.message)
     if (error.name === 'CastError') {
-        return response.status(400).send({error: 'malformatted id'})
+        return res.status(400).send({error: 'malformatted id'})
+    } else if (error.name === 'ValidationError') {
+        return res.status(400).send({error: error.message})
     }
     next(error)
 }
+app.use(errorHandler)
 
-const emptyFieldsErrorHandler = (error, req, res, next) => {
-    console.log(error.message)
-    if (res.status === 400) {
-        return res.status(400).json({error: 'some fields were empty...'})
-    }
-    next(error)
-}
-
-app.use(castErrorHandler)
-app.use(emptyFieldsErrorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
