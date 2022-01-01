@@ -1,0 +1,33 @@
+.success{
+  height: 20px;
+  color: green;
+  background: lightgrey;
+  font-size: 20px;
+  border-style: solid;
+  border-radius: 5px;
+  padding: 3px;
+  margin-bottom: 10px;
+  visibility:visible;
+}
+
+.error{
+  height: 20px;
+  color: red;
+  background: lightgrey;
+  font-size: 20px;
+  border-style: solid;
+  border-radius: 5px;
+  padding: 3px;
+  margin-bottom: 10px;
+  visibility:visible;
+}
+
+.hidden{
+  height: 20px;
+  font-size: 20px;
+  border-style: solid;
+  border-radius: 5px;
+  padding: 3px;
+  margin-bottom: 10px;
+  visibility: hidden;
+}
